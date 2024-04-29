@@ -87,19 +87,19 @@ export type TextStyle = z.infer<ReturnType<typeof textStyleSchema>>;
 const textStyleSchema = (separator: string) =>
   z.object({
     name: nameSchema(separator),
-    lineHeight: valueSchema,
-    fontSize: valueSchema,
-    fontFamily: valueSchema,
-    fontStyle: valueSchema,
+    lineHeight: valueSchema.optional(),
+    fontSize: valueSchema.optional(),
+    fontFamily: valueSchema.optional(),
+    fontStyle: valueSchema.optional(),
   });
 
 export type ShadowEffect = z.infer<typeof shadowEffectSchema>;
 const shadowEffectSchema = z.object({
   type: z.enum(["DROP_SHADOW", "INNER_SHADOW"]),
-  spread: valueSchema,
-  radius: valueSchema,
-  color: valueSchema,
-  offset: z.object({ x: valueSchema, y: valueSchema }),
+  spread: valueSchema.optional(),
+  radius: valueSchema.optional(),
+  color: valueSchema.optional(),
+  offset: z.object({ x: valueSchema, y: valueSchema }).partial().optional(),
 });
 
 const ignoredEffectSchema = z.object({

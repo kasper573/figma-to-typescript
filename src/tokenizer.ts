@@ -35,12 +35,15 @@ export function tokenize(data: FigmaData): DesignToken[] {
   for (const textStyle of data.textStyles) {
     const { name, ...values } = textStyle;
     for (const valueName of typedKeys(values)) {
-      tokens.push({
-        [tokenSymbol]: true,
-        name: [...textStyle.name, valueName],
-        value: values[valueName],
-        origin: { type: "style" },
-      });
+      const value = values[valueName];
+      if (value !== undefined) {
+        tokens.push({
+          [tokenSymbol]: true,
+          name: [...textStyle.name, valueName],
+          value,
+          origin: { type: "style" },
+        });
+      }
     }
   }
 
@@ -60,29 +63,28 @@ function createEffectTokens(
     case "INNER_SHADOW":
     case "DROP_SHADOW": {
       const { color, offset, radius, spread } = effect;
-      return [
-        createEffectToken(styleName, { x: offset.x }),
-        createEffectToken(styleName, { y: offset.y }),
-        createEffectToken(styleName, { color }),
-        createEffectToken(styleName, { radius }),
-        createEffectToken(styleName, { spread }),
-      ];
+      const keyAndValues: { [key: string]: Value | undefined } = {
+        ...offset,
+        color,
+        radius,
+        spread,
+      };
+
+      const tokens: DesignToken[] = [];
+      for (const [key, value] of Object.entries(keyAndValues)) {
+        if (value !== undefined) {
+          tokens.push({
+            [tokenSymbol]: true,
+            name: [...styleName, key],
+            value,
+            origin: { type: "style" },
+          });
+        }
+      }
+      return tokens;
     }
   }
   return [];
-}
-
-function createEffectToken(
-  prefix: string[],
-  keyAndValue: { [key: string]: Value },
-): DesignToken {
-  const [key, value] = Object.entries(keyAndValue)[0];
-  return {
-    [tokenSymbol]: true,
-    name: [...prefix, key],
-    value,
-    origin: { type: "style" },
-  };
 }
 
 const typedKeys = Object.keys as <T>(o: T) => Array<keyof T>;
