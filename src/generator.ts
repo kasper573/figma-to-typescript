@@ -90,7 +90,9 @@ function describeZodError(error: ZodError): string {
   const groupedIssues = groupBy((issue) => issue.path.join("."), error.issues);
   return Array.from(groupedIssues.entries())
     .map(([path, issues]) => {
-      return `  ${path}:\n${issues.map((issue) => `    ${issue.message}`).join("\n")}`;
+      return `  ${path}:\n${issues
+        .map((issue) => `    ${issue.message}`)
+        .join("\n")}`;
     })
     .join("\n");
 }
