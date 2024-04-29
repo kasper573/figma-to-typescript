@@ -9,6 +9,7 @@ import { createTokenGraph } from "./graph";
 import { IO } from "./io";
 import { createAliasResolver } from "./resolver";
 import type { CLIArgs } from "./cli";
+import { ZodError } from "zod";
 
 export async function generate({
   inputPath,
@@ -24,9 +25,17 @@ export async function generate({
   const inputData = JSON.parse(
     await fs.readFile(path.resolve(process.cwd(), inputPath), "utf-8"),
   );
-  const figmaData = figmaDataSchema(separator).parse(inputData);
-  const resolveAlias = createAliasResolver(figmaData.variables);
-  const tokens = tokenize(figmaData);
+
+  const parseResult = figmaDataSchema(separator).safeParse(inputData);
+  if (!parseResult.success) {
+    io.log(
+      `Failed to parse input data. Errors:\n${describeZodError(parseResult.error)}`,
+    );
+    return false;
+  }
+
+  const resolveAlias = createAliasResolver(parseResult.data.variables);
+  const tokens = tokenize(parseResult.data);
   const tokensByTheme = groupBy((token) => token.theme, tokens);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
 
@@ -75,6 +84,15 @@ export async function generate({
   }
 
   return errorsPerFile.length === 0;
+}
+
+function describeZodError(error: ZodError): string {
+  const groupedIssues = groupBy((issue) => issue.path.join("."), error.issues);
+  return Array.from(groupedIssues.entries())
+    .map(([path, issues]) => {
+      return `  ${path}:\n${issues.map((issue) => `    ${issue.message}`).join("\n")}`;
+    })
+    .join("\n");
 }
 
 function groupBy<K, V>(getGroup: (value: V) => K, values: V[]): Map<K, V[]> {
