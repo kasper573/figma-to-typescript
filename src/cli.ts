@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 import * as path from "path";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";

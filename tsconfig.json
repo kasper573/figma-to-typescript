@@ -9,7 +9,6 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "noImplicitReturns": false,
-    "noEmit": true,
     "types": ["@types/node"]
   },
   "include": ["src"],
