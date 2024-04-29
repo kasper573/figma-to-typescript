@@ -4,23 +4,23 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kasper573/figma-to-typescript"
+    "url": "git+https://github.com/kasper573/figma-to-typescript.git"
   },
   "main": "dist/cli.js",
   "bin": {
-    "figma-to-typescript": "./dist/cli.ts"
+    "figma-to-typescript": "dist/cli.js"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
-    "start": "tsx src/cli.ts",
-    "prepare": "npm run build",
+    "build": "tsup src/cli.ts --clean --format cjs --out-dir dist",
+    "start": "node dist/cli.js",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prepublishOnly": "npm run build"
   },
-  "devDependencies": {
+  "dependencies": {
     "@types/yargs": "^17",
     "@types/node": "^20",
     "@eslint/js": "^8",
@@ -30,6 +30,6 @@
     "typescript-eslint": "^7",
     "yargs": "^17",
     "zod": "^3",
-    "tsx": "^4"
+    "tsup": "^8"
   }
 }
