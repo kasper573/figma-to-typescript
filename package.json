@@ -15,6 +15,7 @@
   ],
   "scripts": {
     "build": "tsup src/cli.ts --clean --format cjs --out-dir dist",
+    "dev": "pnpm build --watch",
     "start": "node dist/cli.js",
     "lint": "eslint .",
     "format": "prettier --write .",
