@@ -5,7 +5,9 @@
   "type": "module",
   "main": "./src/cli.ts",
   "types": "./src/cli.ts",
-  "bin": "./src/cli.ts",
+  "bin": {
+    "figma-to-typescript": "src/cli.ts"
+  },
   "files": [
     "src"
   ],
