@@ -87,7 +87,13 @@ export type TextStyle = z.infer<ReturnType<typeof textStyleSchema>>;
 const textStyleSchema = (separator: string) =>
   z.object({
     name: nameSchema(separator),
-    lineHeight: valueSchema.optional(),
+    lineHeight: z
+      .object({
+        unit: valueSchema,
+        value: valueSchema,
+      })
+      .or(valueSchema)
+      .optional(),
     fontSize: valueSchema.optional(),
     fontFamily: valueSchema.optional(),
     fontStyle: valueSchema.optional(),

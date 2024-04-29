@@ -1,12 +1,21 @@
-import type { FigmaData, Value, Variable, Effect } from "./parser";
+import {
+  type FigmaData,
+  type Value,
+  type Variable,
+  valueSchema,
+} from "./parser";
 
 export interface DesignToken {
   [tokenSymbol]: true;
   theme?: string;
   name: string[];
   value: Value;
-  origin: { type: "variable"; variable: Variable } | { type: "style" };
+  origin: DesignTokenOrigin;
 }
+
+export type DesignTokenOrigin =
+  | { type: "variable"; variable: Variable }
+  | { type: "style" };
 
 export function tokenize(data: FigmaData): DesignToken[] {
   const tokens: DesignToken[] = [];
@@ -33,61 +42,59 @@ export function tokenize(data: FigmaData): DesignToken[] {
   }
 
   for (const textStyle of data.textStyles) {
-    const { name, ...values } = textStyle;
-    for (const valueName of typedKeys(values)) {
-      const value = values[valueName];
-      if (value !== undefined) {
-        tokens.push({
-          [tokenSymbol]: true,
-          name: [...textStyle.name, valueName],
-          value,
-          origin: { type: "style" },
-        });
-      }
-    }
+    const { name, ...rest } = textStyle;
+    tokens.push(...flattenIntoTokenList({ type: "style" }, name, rest));
   }
 
   for (const effectStyle of data.effectStyles) {
     for (const effect of effectStyle.effects) {
-      tokens.push(...createEffectTokens(effectStyle.name, effect));
+      switch (effect.type) {
+        case "INNER_SHADOW":
+        case "DROP_SHADOW": {
+          const { type, offset, ...rest } = effect;
+          tokens.push(
+            ...flattenIntoTokenList({ type: "style" }, effectStyle.name, {
+              ...offset,
+              ...rest,
+            }),
+          );
+          break;
+        }
+      }
     }
   }
   return tokens;
 }
 
-function createEffectTokens(
-  styleName: string[],
-  effect: Effect,
+type ValueGraph = Value | undefined | { [key: string]: ValueGraph | undefined };
+
+function flattenIntoTokenList(
+  origin: DesignTokenOrigin,
+  prefix: string[],
+  node: ValueGraph,
 ): DesignToken[] {
-  switch (effect.type) {
-    case "INNER_SHADOW":
-    case "DROP_SHADOW": {
-      const { color, offset, radius, spread } = effect;
-      const keyAndValues: { [key: string]: Value | undefined } = {
-        ...offset,
-        color,
-        radius,
-        spread,
-      };
-
-      const tokens: DesignToken[] = [];
-      for (const [key, value] of Object.entries(keyAndValues)) {
-        if (value !== undefined) {
-          tokens.push({
-            [tokenSymbol]: true,
-            name: [...styleName, key],
-            value,
-            origin: { type: "style" },
-          });
-        }
-      }
-      return tokens;
-    }
+  if (node === undefined) {
+    return [];
   }
-  return [];
-}
 
-const typedKeys = Object.keys as <T>(o: T) => Array<keyof T>;
+  const result = valueSchema.safeParse(node);
+  if (result.success) {
+    return [
+      {
+        [tokenSymbol]: true,
+        name: prefix,
+        value: result.data,
+        origin,
+      },
+    ];
+  }
+
+  const tokens: DesignToken[] = [];
+  for (const [key, value] of Object.entries(node)) {
+    tokens.push(...flattenIntoTokenList(origin, [...prefix, key], value));
+  }
+  return tokens;
+}
 
 const tokenSymbol = Symbol("token");
 
