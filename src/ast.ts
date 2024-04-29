@@ -28,7 +28,7 @@ export function AST_designTokenFile(
       statements.push(
         ts.addSyntheticLeadingComment(
           F.createEmptyStatement(),
-          ts.SyntaxKind.SingleLineCommentTrivia,
+          ts.SyntaxKind.MultiLineCommentTrivia,
           ` Error: Skipped token "${tokenName}". Root level tokens names must be valid typescript identifiers.`,
         ),
       );
@@ -84,7 +84,13 @@ function AST_designTokenNode(
     case "number":
       return {
         elementType: "property",
-        value: F.createNumericLiteral(value.value),
+        value:
+          value.value < 0
+            ? F.createPrefixUnaryExpression(
+                ts.SyntaxKind.MinusToken,
+                F.createNumericLiteral(-value.value),
+              )
+            : F.createNumericLiteral(value.value),
       };
     case "string":
       return {
@@ -104,7 +110,7 @@ function AST_designTokenNode(
           elementType: "property",
           value: ts.addSyntheticTrailingComment(
             F.createNull(),
-            ts.SyntaxKind.SingleLineCommentTrivia,
+            ts.SyntaxKind.MultiLineCommentTrivia,
             ` Error: Skipped alias "${tokenName}". ${result.error}`,
           ),
         };
