@@ -98,7 +98,7 @@ function AST_designTokenNode(
     case "string":
       return {
         elementType: "property",
-        value: F.createStringLiteral(value.value),
+        value: AST_asConst(F.createStringLiteral(value.value)),
       };
     case "rgb":
     case "rgba":
@@ -201,14 +201,7 @@ function AST_constExport(
   return F.createVariableStatement(
     [F.createModifier(ts.SyntaxKind.ExportKeyword)],
     F.createVariableDeclarationList(
-      [
-        F.createVariableDeclaration(
-          name,
-          undefined,
-          undefined,
-          AST_asConst(initializer),
-        ),
-      ],
+      [F.createVariableDeclaration(name, undefined, undefined, initializer)],
       ts.NodeFlags.Const,
     ),
   );
