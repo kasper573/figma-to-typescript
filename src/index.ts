@@ -15,3 +15,4 @@ if (require.main === module) {
 // Export the programmatic API
 
 export * from "./generator";
+export * from "./cli";
