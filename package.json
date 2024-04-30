@@ -6,17 +6,18 @@
     "type": "git",
     "url": "git+https://github.com/kasper573/figma-to-typescript.git"
   },
-  "main": "dist/cli.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
-    "figma-to-typescript": "dist/cli.js"
+    "figma-to-typescript": "dist/index.js"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/cli.ts --clean --format cjs --out-dir dist",
+    "build": "tsup src/index.ts --clean --dts --format cjs --out-dir dist",
     "dev": "pnpm build --watch",
-    "start": "node dist/cli.js",
+    "start": "node dist/index.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "prepublishOnly": "npm run build"

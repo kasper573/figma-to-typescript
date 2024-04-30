@@ -26,27 +26,11 @@ export function AST_designTokenFile(
   }
 
   for (const [tokenName, tokenNode] of Object.entries(tokens)) {
-    if (!cnc.isValidIdentifier(tokenName)) {
-      statements.push(
-        ts.addSyntheticLeadingComment(
-          F.createEmptyStatement(),
-          ts.SyntaxKind.MultiLineCommentTrivia,
-          ` Error: Skipped token "${tokenName}". Root level tokens names must be valid typescript identifiers.`,
-        ),
-      );
-      continue;
-    }
-
     const tokenNameAsId = cnc.identifier(tokenName);
     statements.push(AST_typeAlias(tokenNameAsId, tokenNameAsId));
 
     if (isDesignToken(tokenNode)) {
-      const { value } = AST_designTokenNode(
-        tokenName,
-        tokenNode,
-        resolveAlias,
-        cnc,
-      );
+      const { value } = AST_designTokenNode(tokenNode, resolveAlias, cnc);
       statements.push(AST_asConstExport(tokenNameAsId, value));
     } else {
       statements.push(
@@ -69,7 +53,6 @@ export function AST_designTokenFile(
 }
 
 function AST_designTokenNode(
-  tokenName: string,
   node: DesignTokenNode,
   resolveAlias: AliasResolver,
   cnc: CodegenNamingConvention,
@@ -119,7 +102,7 @@ function AST_designTokenNode(
           value: ts.addSyntheticTrailingComment(
             F.createNull(),
             ts.SyntaxKind.MultiLineCommentTrivia,
-            ` Error: Skipped alias "${tokenName}". ${result.error}`,
+            ` Error: Skipped alias. ${result.error}`,
           ),
         };
       }
@@ -127,13 +110,16 @@ function AST_designTokenNode(
       if (!result.value.isLocal) {
         return {
           elementType: "property",
-          value: cnc.accessor([cnc.referenceImportName, ...result.value.path]),
+          value: cnc.accessorChain([
+            cnc.referenceImportName,
+            ...result.value.path,
+          ]),
         };
       }
 
       return {
         elementType: "getAccessor",
-        value: cnc.accessor(result.value.path),
+        value: cnc.accessorChain(result.value.path),
       };
     }
   }
@@ -147,18 +133,17 @@ function AST_designTokenGraph(
   return F.createObjectLiteralExpression(
     Object.entries(tokens).map(([tokenName, node]) => {
       const { elementType, value } = AST_designTokenNode(
-        tokenName,
         node,
         resolveAlias,
         cnc,
       );
       switch (elementType) {
         case "property":
-          return F.createPropertyAssignment(cnc.reference(tokenName), value);
+          return F.createPropertyAssignment(cnc.accessor(tokenName), value);
         case "getAccessor":
           return F.createGetAccessorDeclaration(
             undefined,
-            cnc.reference(tokenName),
+            cnc.accessor(tokenName),
             [],
             undefined,
             F.createBlock([F.createReturnStatement(value)]),
@@ -226,32 +211,46 @@ export class CodegenNamingConvention {
   constructor(
     private settings: {
       referenceImportName: string;
+      transform?: (name: string) => string;
     },
   ) {}
 
-  accessor(parts: string[]): ts.Expression {
-    let node: ts.Expression = this.identifier(parts[0]);
+  accessorChain = (parts: string[]): ts.Expression => {
+    parts = parts.map(this.transform);
+    let node: ts.Expression = this.assertIdentifier(parts[0]);
     for (const part of parts.slice(1)) {
-      node = this.isValidIdentifier(part)
+      node = isValidIdentifier(part)
         ? F.createPropertyAccessExpression(node, part)
-        : F.createElementAccessExpression(node, this.reference(part));
+        : F.createElementAccessExpression(node, F.createStringLiteral(part));
     }
     return node;
-  }
+  };
 
-  reference(name: string) {
-    return this.isValidIdentifier(name)
-      ? this.identifier(name)
-      : F.createStringLiteral(name);
-  }
+  accessor = (input: string) => {
+    input = this.transform(input);
+    return isValidIdentifier(input)
+      ? this.assertIdentifier(input)
+      : F.createStringLiteral(input);
+  };
 
-  identifier(name: string) {
+  identifier = (input: string) => {
+    return this.assertIdentifier(this.transform(input));
+  };
+
+  private assertIdentifier = (name: string) => {
+    if (!isValidIdentifier(name)) {
+      throw new Error(`Invalid identifier: ${name}`);
+    }
     return F.createIdentifier(name);
-  }
+  };
 
-  isValidIdentifier(name: string): boolean {
-    return /^[a-zA-Z_]\w*$/.test(name);
-  }
+  private transform = (name: string) => {
+    return this.settings.transform ? this.settings.transform(name) : name;
+  };
+}
+
+function isValidIdentifier(name: string): boolean {
+  return /^[a-zA-Z_]\w*$/.test(name);
 }
 
 function serializeColor(color: Color) {

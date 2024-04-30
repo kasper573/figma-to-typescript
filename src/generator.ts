@@ -11,14 +11,19 @@ import { createAliasResolver } from "./resolver";
 import type { CLIArgs } from "./cli";
 import { ZodError } from "zod";
 
+export interface CodegenOptions extends CLIArgs {
+  nameTransformer?: (name: string) => string;
+}
+
 export async function generate({
   inputPath,
   themeOutputFolder,
   referenceOutputPath,
   referenceImportName,
+  nameTransformer,
   separator,
   codeHeader,
-}: CLIArgs) {
+}: CodegenOptions) {
   const io = new IO({
     themeOutputFolder,
     referenceOutputPath,
@@ -39,7 +44,10 @@ export async function generate({
   const tokens = tokenize(parseResult.data);
   const tokensByTheme = groupBy((token) => token.theme, tokens);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-  const cnc = new CodegenNamingConvention({ referenceImportName });
+  const cnc = new CodegenNamingConvention({
+    referenceImportName,
+    transform: nameTransformer,
+  });
 
   const errorsPerFile = await Promise.all(
     Array.from(tokensByTheme.entries()).map(async ([theme, tokens = []]) => {

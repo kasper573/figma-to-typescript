@@ -1,18 +1,8 @@
 import * as path from "path";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { generate } from "./generator";
 
-if (require.main === module) {
-  readCLIArgs().then(async (args) => {
-    const ok = await generate(args);
-    if (!ok && args.exitWithNonZeroOnError) {
-      process.exit(1);
-    }
-  });
-}
-
-function readCLIArgs() {
+export function readCLIArgs() {
   return yargs(hideBin(process.argv))
     .options({
       inputPath: {
