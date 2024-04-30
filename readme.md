@@ -31,8 +31,12 @@ const finishedWithoutErrors = await generate({
   // However, programmatic interface exposes more options:
 
   /**
-   * Allows you to control the naming convention of properties
+   * Allows you to control naming conventions
    **/
-  nameTransformer: (name) => name.toLowerCase(),
+  nameTransformers: {
+    identifier: (str) => str.toLowerCase(),
+    typeName: (str) => str.toUpperCase(),
+    fileName: (str) => str.toLowerCase(),
+  };
 });
 ```

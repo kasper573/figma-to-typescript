@@ -27,8 +27,8 @@ export function AST_designTokenFile(
   }
 
   for (const [tokenName, tokenNode] of Object.entries(tokens)) {
-    const tokenNameAsId = cnc.identifier(tokenName);
-    statements.push(AST_typeAlias(tokenNameAsId, tokenNameAsId));
+    const tokenIdentifier = cnc.identifier(tokenName);
+    statements.push(AST_typeAlias(cnc.typeName(tokenName), tokenIdentifier));
 
     if (isDesignToken(tokenNode)) {
       const { value } = AST_designTokenNode(
@@ -37,11 +37,11 @@ export function AST_designTokenFile(
         cnc,
         referenceImportName,
       );
-      statements.push(AST_constExport(tokenNameAsId, value));
+      statements.push(AST_constExport(tokenIdentifier, value));
     } else {
       statements.push(
         AST_constExport(
-          tokenNameAsId,
+          tokenIdentifier,
           AST_designTokenGraph(
             tokenNode,
             resolveAlias,
@@ -225,11 +225,16 @@ function toTypescriptImportPath(path: string) {
   return path.replace(/\\/g, "/").replace(/\.[^.]+$/, "");
 }
 
+export type StringTransformer = (name: string) => string;
+
 export class CodegenNamingConvention {
-  constructor(private transform = (name: string) => name) {}
+  constructor(
+    private transformIdentifier = (id: string) => id,
+    private transformTypeName = (name: string) => name,
+  ) {}
 
   accessorChain = (parts: string[]): ts.Expression => {
-    parts = parts.map(this.transform);
+    parts = parts.map(this.transformIdentifier);
     let node: ts.Expression = this.assertIdentifier(parts[0]);
     for (const part of parts.slice(1)) {
       node = isValidIdentifier(part)
@@ -240,14 +245,18 @@ export class CodegenNamingConvention {
   };
 
   accessor = (input: string) => {
-    input = this.transform(input);
+    input = this.transformIdentifier(input);
     return isValidIdentifier(input)
       ? this.assertIdentifier(input)
       : F.createStringLiteral(input);
   };
 
   identifier = (input: string) => {
-    return this.assertIdentifier(this.transform(input));
+    return this.assertIdentifier(this.transformIdentifier(input));
+  };
+
+  typeName = (input: string) => {
+    return this.assertIdentifier(this.transformTypeName(input));
   };
 
   private assertIdentifier = (name: string) => {

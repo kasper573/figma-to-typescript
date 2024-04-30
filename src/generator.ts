@@ -4,7 +4,11 @@ import { format } from "prettier";
 import * as ts from "typescript";
 import { figmaDataSchema } from "./parser";
 import { tokenize } from "./tokenizer";
-import { AST_designTokenFile, CodegenNamingConvention } from "./ast";
+import {
+  AST_designTokenFile,
+  CodegenNamingConvention,
+  StringTransformer,
+} from "./ast";
 import { createTokenGraph } from "./graph";
 import { IO } from "./io";
 import { createAliasResolver } from "./resolver";
@@ -12,7 +16,11 @@ import type { CLIArgs } from "./cli";
 import { ZodError } from "zod";
 
 export interface CodegenOptions extends CLIArgs {
-  nameTransformer?: (name: string) => string;
+  nameTransformers?: {
+    identifier?: StringTransformer;
+    typeName?: StringTransformer;
+    fileName?: StringTransformer;
+  };
 }
 
 export async function generate({
@@ -20,14 +28,14 @@ export async function generate({
   themeOutputFolder,
   referenceOutputPath,
   referenceImportName,
-  nameTransformer,
+  nameTransformers,
   separator,
   codeHeader,
 }: CodegenOptions) {
   const io = new IO({
     themeOutputFolder,
     referenceOutputPath,
-    nameTransformer,
+    nameTransformer: nameTransformers?.fileName,
   });
   const inputData = JSON.parse(
     await fs.readFile(path.resolve(process.cwd(), inputPath), "utf-8"),
@@ -45,7 +53,10 @@ export async function generate({
   const tokens = tokenize(parseResult.data);
   const tokensByTheme = groupBy((token) => token.theme, tokens);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-  const cnc = new CodegenNamingConvention(nameTransformer);
+  const cnc = new CodegenNamingConvention(
+    nameTransformers?.identifier,
+    nameTransformers?.typeName,
+  );
 
   const errorsPerFile = await Promise.all(
     Array.from(tokensByTheme.entries()).map(async ([theme, tokens = []]) => {
