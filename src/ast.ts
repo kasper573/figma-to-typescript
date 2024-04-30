@@ -37,10 +37,10 @@ export function AST_designTokenFile(
         cnc,
         referenceImportName,
       );
-      statements.push(AST_asConstExport(tokenNameAsId, value));
+      statements.push(AST_constExport(tokenNameAsId, value));
     } else {
       statements.push(
-        AST_asConstExport(
+        AST_constExport(
           tokenNameAsId,
           AST_designTokenGraph(
             tokenNode,
@@ -190,23 +190,34 @@ function AST_typeAlias(
     [F.createModifier(ts.SyntaxKind.ExportKeyword)],
     exportId,
     undefined,
-    F.createTypeOperatorNode(
-      ts.SyntaxKind.KeyOfKeyword,
-      F.createTypeQueryNode(identifierId),
-    ),
+    F.createTypeQueryNode(identifierId),
   );
 }
 
-function AST_asConstExport(
+function AST_constExport(
   name: ts.Identifier,
   initializer: ts.Expression,
 ): ts.Statement {
   return F.createVariableStatement(
     [F.createModifier(ts.SyntaxKind.ExportKeyword)],
     F.createVariableDeclarationList(
-      [F.createVariableDeclaration(name, undefined, undefined, initializer)],
+      [
+        F.createVariableDeclaration(
+          name,
+          undefined,
+          undefined,
+          AST_asConst(initializer),
+        ),
+      ],
       ts.NodeFlags.Const,
     ),
+  );
+}
+
+function AST_asConst(subject: ts.Expression) {
+  return F.createAsExpression(
+    subject,
+    F.createTypeReferenceNode(F.createIdentifier("const"), []),
   );
 }
 
