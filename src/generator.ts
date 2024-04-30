@@ -44,10 +44,7 @@ export async function generate({
   const tokens = tokenize(parseResult.data);
   const tokensByTheme = groupBy((token) => token.theme, tokens);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-  const cnc = new CodegenNamingConvention({
-    referenceImportName,
-    transform: nameTransformer,
-  });
+  const cnc = new CodegenNamingConvention(nameTransformer);
 
   const errorsPerFile = await Promise.all(
     Array.from(tokensByTheme.entries()).map(async ([theme, tokens = []]) => {
@@ -58,6 +55,7 @@ export async function generate({
         createTokenGraph(tokens),
         resolveAlias,
         io.relativePathToReferenceFile(theme),
+        referenceImportName,
         cnc,
       );
 

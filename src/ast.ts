@@ -11,6 +11,7 @@ export function AST_designTokenFile(
   tokens: DesignTokenGraph,
   resolveAlias: AliasResolver,
   relativePathToReferenceFile: string,
+  referenceImportName: string,
   cnc: CodegenNamingConvention,
 ): Result<ts.SourceFile, string> {
   const statements: ts.Statement[] = [];
@@ -19,7 +20,7 @@ export function AST_designTokenFile(
     statements.push(
       AST_importAllAs(
         toTypescriptImportPath(relativePathToReferenceFile),
-        cnc.referenceImportName,
+        referenceImportName,
         cnc,
       ),
     );
@@ -30,13 +31,23 @@ export function AST_designTokenFile(
     statements.push(AST_typeAlias(tokenNameAsId, tokenNameAsId));
 
     if (isDesignToken(tokenNode)) {
-      const { value } = AST_designTokenNode(tokenNode, resolveAlias, cnc);
+      const { value } = AST_designTokenNode(
+        tokenNode,
+        resolveAlias,
+        cnc,
+        referenceImportName,
+      );
       statements.push(AST_asConstExport(tokenNameAsId, value));
     } else {
       statements.push(
         AST_asConstExport(
           tokenNameAsId,
-          AST_designTokenGraph(tokenNode, resolveAlias, cnc),
+          AST_designTokenGraph(
+            tokenNode,
+            resolveAlias,
+            cnc,
+            referenceImportName,
+          ),
         ),
       );
     }
@@ -56,11 +67,12 @@ function AST_designTokenNode(
   node: DesignTokenNode,
   resolveAlias: AliasResolver,
   cnc: CodegenNamingConvention,
+  referenceImportName: string,
 ): { elementType: "property" | "getAccessor"; value: ts.Expression } {
   if (!isDesignToken(node)) {
     return {
       elementType: "property",
-      value: AST_designTokenGraph(node, resolveAlias, cnc),
+      value: AST_designTokenGraph(node, resolveAlias, cnc, referenceImportName),
     };
   }
 
@@ -110,10 +122,7 @@ function AST_designTokenNode(
       if (!result.value.isLocal) {
         return {
           elementType: "property",
-          value: cnc.accessorChain([
-            cnc.referenceImportName,
-            ...result.value.path,
-          ]),
+          value: cnc.accessorChain([referenceImportName, ...result.value.path]),
         };
       }
 
@@ -129,6 +138,7 @@ function AST_designTokenGraph(
   tokens: DesignTokenGraph,
   resolveAlias: AliasResolver,
   cnc: CodegenNamingConvention,
+  referenceImportName: string,
 ): ts.Expression {
   return F.createObjectLiteralExpression(
     Object.entries(tokens).map(([tokenName, node]) => {
@@ -136,6 +146,7 @@ function AST_designTokenGraph(
         node,
         resolveAlias,
         cnc,
+        referenceImportName,
       );
       switch (elementType) {
         case "property":
@@ -204,16 +215,7 @@ function toTypescriptImportPath(path: string) {
 }
 
 export class CodegenNamingConvention {
-  get referenceImportName() {
-    return this.settings.referenceImportName;
-  }
-
-  constructor(
-    private settings: {
-      referenceImportName: string;
-      transform?: (name: string) => string;
-    },
-  ) {}
+  constructor(private transform = (name: string) => name) {}
 
   accessorChain = (parts: string[]): ts.Expression => {
     parts = parts.map(this.transform);
@@ -242,10 +244,6 @@ export class CodegenNamingConvention {
       throw new Error(`Invalid identifier: ${name}`);
     }
     return F.createIdentifier(name);
-  };
-
-  private transform = (name: string) => {
-    return this.settings.transform ? this.settings.transform(name) : name;
   };
 }
 
