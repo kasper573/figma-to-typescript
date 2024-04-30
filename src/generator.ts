@@ -4,7 +4,7 @@ import { format } from "prettier";
 import * as ts from "typescript";
 import { figmaDataSchema } from "./parser";
 import { tokenize } from "./tokenizer";
-import { AST_designTokenFile } from "./ast";
+import { AST_designTokenFile, CodegenNamingConvention } from "./ast";
 import { createTokenGraph } from "./graph";
 import { IO } from "./io";
 import { createAliasResolver } from "./resolver";
@@ -15,6 +15,7 @@ export async function generate({
   inputPath,
   themeOutputFolder,
   referenceOutputPath,
+  referenceImportName,
   separator,
   codeHeader,
 }: CLIArgs) {
@@ -38,6 +39,7 @@ export async function generate({
   const tokens = tokenize(parseResult.data);
   const tokensByTheme = groupBy((token) => token.theme, tokens);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+  const cnc = new CodegenNamingConvention({ referenceImportName });
 
   const errorsPerFile = await Promise.all(
     Array.from(tokensByTheme.entries()).map(async ([theme, tokens = []]) => {
@@ -48,6 +50,7 @@ export async function generate({
         createTokenGraph(tokens),
         resolveAlias,
         io.relativePathToReferenceFile(theme),
+        cnc,
       );
 
       const errors: string[] = [];

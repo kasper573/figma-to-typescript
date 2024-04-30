@@ -54,6 +54,13 @@ function readCLIArgs() {
         default: false,
         description: "Exit with a non-zero code if an error occurs.",
       },
+      referenceImportName: {
+        type: "string",
+        alias: "ref",
+        default: "__ref__",
+        description:
+          "The name of the reference file import in the generated theme files",
+      },
     })
     .parseAsync();
 }
