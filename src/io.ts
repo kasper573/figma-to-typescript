@@ -8,6 +8,7 @@ export class IO {
     private settings: {
       themeOutputFolder: string;
       referenceOutputPath: string;
+      nameTransformer?: (name: string) => string;
     },
   ) {}
 
@@ -28,7 +29,10 @@ export class IO {
     if (!toTheme) {
       return this.referenceFile;
     } else {
-      return path.resolve(this.settings.themeOutputFolder, `${toTheme}.ts`);
+      return path.resolve(
+        this.settings.themeOutputFolder,
+        `${this.settings.nameTransformer?.(toTheme) ?? toTheme}.ts`,
+      );
     }
   }
 

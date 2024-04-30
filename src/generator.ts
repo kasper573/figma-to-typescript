@@ -27,6 +27,7 @@ export async function generate({
   const io = new IO({
     themeOutputFolder,
     referenceOutputPath,
+    nameTransformer,
   });
   const inputData = JSON.parse(
     await fs.readFile(path.resolve(process.cwd(), inputPath), "utf-8"),
