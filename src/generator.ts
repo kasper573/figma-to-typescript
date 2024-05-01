@@ -15,19 +15,17 @@ import { createAliasResolver } from "./resolver";
 import type { CLIArgs } from "./cli";
 import { ZodError } from "zod";
 
-export interface CodegenOptions extends CLIArgs {
+export interface CodegenOptions extends Omit<CLIArgs, "themeOutputFolder"> {
+  themeOutputPath: (themeName: string) => string;
   nameTransformers?: {
     identifier?: StringTransformer;
     typeName?: StringTransformer;
   };
-  themeOutputPath?: (themeName: string) => string;
 }
 
 export async function generate({
   inputPath,
-  themeOutputFolder,
-  themeOutputPath = (themeName) =>
-    path.join(themeOutputFolder, `${themeName}.ts`),
+  themeOutputPath,
   globalsOutputPath,
   globalsImportName,
   nameTransformers,
