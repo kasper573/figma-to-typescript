@@ -15,13 +15,14 @@ import { createAliasResolver } from "./resolver";
 import type { CLIArgs } from "./cli";
 import { ZodError } from "zod";
 
-export interface CodegenOptions extends Omit<CLIArgs, "themeOutputFolder"> {
+export interface CodegenOptions
+  extends Omit<CLIArgs, "themeOutputFolder" | "separator"> {
   themeOutputPath: (themeName: string) => string;
+  /**
+   * Parse the name of a token into its hierarchical path (usually done by splitting by a separator)
+   */
+  parseTokenName: (name: string) => string[];
   transformers?: {
-    /**
-     * Transform the token names before generating the code (after splitting by separator)
-     */
-    token?: (name: string[]) => string[];
     /**
      * Transform identifier names before generating the code
      */
@@ -39,7 +40,7 @@ export async function generate({
   sharedOutputPath,
   sharedImportName,
   transformers,
-  separator,
+  parseTokenName,
   codeHeader,
 }: CodegenOptions) {
   const io = new IO();
@@ -47,7 +48,7 @@ export async function generate({
     await fs.readFile(path.resolve(process.cwd(), inputPath), "utf-8"),
   );
 
-  const parseResult = figmaDataSchema(separator).safeParse(inputData);
+  const parseResult = figmaDataSchema(parseTokenName).safeParse(inputData);
   if (!parseResult.success) {
     io.log(
       `Failed to parse input data. Errors:\n${describeZodError(parseResult.error)}`,
@@ -56,7 +57,7 @@ export async function generate({
   }
 
   const resolveAlias = createAliasResolver(parseResult.data.variables);
-  const tokens = tokenize(parseResult.data, transformers?.token);
+  const tokens = tokenize(parseResult.data);
   const tokensByTheme = groupBy((token) => token.theme, tokens);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
   const cnc = new CodegenNamingConvention(

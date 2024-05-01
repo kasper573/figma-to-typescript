@@ -5,9 +5,10 @@ import { readCLIArgs } from "./cli";
 // Initialize the CLI if this script is run directly
 
 if (require.main === module) {
-  readCLIArgs().then(async ({ themeOutputFolder, ...args }) => {
+  readCLIArgs().then(async ({ themeOutputFolder, separator, ...args }) => {
     const ok = await generate({
       ...args,
+      parseTokenName: (name) => name.split(separator),
       themeOutputPath: (themeName) =>
         path.resolve(themeOutputFolder, `${themeName}.ts`),
     });

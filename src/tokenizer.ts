@@ -17,10 +17,7 @@ export type DesignTokenOrigin =
   | { type: "variable"; variable: Variable }
   | { type: "style" };
 
-export function tokenize(
-  data: FigmaData,
-  nameTransformer?: (name: string[]) => string[],
-): DesignToken[] {
+export function tokenize(data: FigmaData): DesignToken[] {
   const tokens: DesignToken[] = [];
 
   for (const variable of data.variables) {
@@ -64,12 +61,6 @@ export function tokenize(
           break;
         }
       }
-    }
-  }
-
-  if (nameTransformer) {
-    for (const token of tokens) {
-      token.name = nameTransformer(token.name);
     }
   }
 

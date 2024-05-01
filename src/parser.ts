@@ -35,8 +35,7 @@ export const valueSchema = z.discriminatedUnion("type", [
   rgbSchema,
 ]);
 
-const nameSchema = (separator: string) =>
-  z.string().transform((value) => value.split(separator));
+const nameSchema = (nameParser: NameParser) => z.string().transform(nameParser);
 
 export type Variable = {
   id: string;
@@ -52,11 +51,11 @@ export type Variable = {
     }
 );
 
-const variableSchema = (separator: string) => {
+const variableSchema = (nameParser: NameParser) => {
   return z
     .object({
       id: z.string(),
-      name: nameSchema(separator),
+      name: nameSchema(nameParser),
       collection: z.string(),
       valuesByMode: z.record(valueSchema),
     })
@@ -84,9 +83,9 @@ const variableSchema = (separator: string) => {
 };
 
 export type TextStyle = z.infer<ReturnType<typeof textStyleSchema>>;
-const textStyleSchema = (separator: string) =>
+const textStyleSchema = (options: NameParser) =>
   z.object({
-    name: nameSchema(separator),
+    name: nameSchema(options),
     lineHeight: z
       .object({
         unit: valueSchema,
@@ -119,16 +118,18 @@ const effectSchema = z.discriminatedUnion("type", [
 ]);
 
 export type EffectStyle = z.infer<ReturnType<typeof effectStyleSchema>>;
-const effectStyleSchema = (separator: string) =>
+const effectStyleSchema = (nameParser: NameParser) =>
   z.object({
-    name: nameSchema(separator),
+    name: nameSchema(nameParser),
     effects: z.array(effectSchema),
   });
 
 export type FigmaData = z.infer<ReturnType<typeof figmaDataSchema>>;
-export const figmaDataSchema = (separator: string) =>
+export const figmaDataSchema = (nameParser: NameParser) =>
   z.object({
-    variables: z.array(variableSchema(separator)),
-    textStyles: z.array(textStyleSchema(separator)),
-    effectStyles: z.array(effectStyleSchema(separator)),
+    variables: z.array(variableSchema(nameParser)),
+    textStyles: z.array(textStyleSchema(nameParser)),
+    effectStyles: z.array(effectStyleSchema(nameParser)),
   });
+
+export type NameParser = (name: string) => string[];
