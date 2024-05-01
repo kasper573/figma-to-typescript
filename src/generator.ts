@@ -75,21 +75,21 @@ export async function generate({
         cnc,
       );
 
-      const errors: string[] = [];
-      if (sourceFile.ok) {
-        let code = printer.printFile(sourceFile.value);
-        try {
-          code = await format(code, { parser: "typescript" });
-        } catch (e) {
-          errors.push(`Failed to format:\n${e}`);
-        }
+      if (!sourceFile.ok) {
+        return [filename, [sourceFile.error]] as const;
+      }
 
-        const saveResult = await io.save(filename, codeHeader + code);
-        if (!saveResult.ok) {
-          errors.push(`Failed to save:\n${saveResult.error}`);
-        }
-      } else {
-        errors.push(sourceFile.error);
+      const errors: string[] = [];
+      let code = printer.printFile(sourceFile.value);
+      try {
+        code = await format(code, { parser: "typescript" });
+      } catch (e) {
+        errors.push(`Failed to format:\n${e}`);
+      }
+
+      const saveResult = await io.save(filename, codeHeader + code);
+      if (!saveResult.ok) {
+        errors.push(`Failed to save:\n${saveResult.error}`);
       }
 
       return [filename, errors] as const;
