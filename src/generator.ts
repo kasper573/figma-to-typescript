@@ -17,18 +17,28 @@ import { ZodError } from "zod";
 
 export interface CodegenOptions extends Omit<CLIArgs, "themeOutputFolder"> {
   themeOutputPath: (themeName: string) => string;
-  nameTransformers?: {
+  transformers?: {
+    /**
+     * Transform the token names before generating the code (after splitting by separator)
+     */
+    token?: (name: string[]) => string[];
+    /**
+     * Transform identifier names before generating the code
+     */
     identifier?: StringTransformer;
-    typeName?: StringTransformer;
+    /**
+     * Transform type names before generating the code
+     */
+    type?: StringTransformer;
   };
 }
 
 export async function generate({
   inputPath,
   themeOutputPath,
-  globalsOutputPath,
-  globalsImportName,
-  nameTransformers,
+  sharedOutputPath,
+  sharedImportName,
+  transformers,
   separator,
   codeHeader,
 }: CodegenOptions) {
@@ -46,30 +56,30 @@ export async function generate({
   }
 
   const resolveAlias = createAliasResolver(parseResult.data.variables);
-  const tokens = tokenize(parseResult.data);
+  const tokens = tokenize(parseResult.data, transformers?.token);
   const tokensByTheme = groupBy((token) => token.theme, tokens);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
   const cnc = new CodegenNamingConvention(
-    nameTransformers?.identifier,
-    nameTransformers?.typeName,
+    transformers?.identifier,
+    transformers?.type,
   );
 
   const errorsPerFile = await Promise.all(
     Array.from(tokensByTheme.entries()).map(async ([theme, tokens = []]) => {
-      const isGlobal = theme === undefined;
-      const filename = isGlobal ? globalsOutputPath : themeOutputPath(theme);
+      const isShared = theme === undefined;
+      const filename = isShared ? sharedOutputPath : themeOutputPath(theme);
 
-      const pathToGlobalsFile = isGlobal
+      const pathToSharedFile = isShared
         ? "."
-        : path.relative(path.dirname(filename), globalsOutputPath);
+        : path.relative(path.dirname(filename), sharedOutputPath);
 
       io.log("Generating", filename);
 
       const sourceFile = AST_designTokenFile(
         createTokenGraph(tokens),
         resolveAlias,
-        pathToGlobalsFile,
-        globalsImportName,
+        pathToSharedFile,
+        sharedImportName,
         cnc,
       );
 

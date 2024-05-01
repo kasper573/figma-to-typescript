@@ -43,11 +43,11 @@ export type Variable = {
   name: string[];
 } & (
   | {
-      isGlobal: true;
+      isShared: true;
       value: Value;
     }
   | {
-      isGlobal: false;
+      isShared: false;
       themeValues: Record<string, Value>;
     }
 );
@@ -70,14 +70,14 @@ const variableSchema = (separator: string) => {
       if (values.length === 1) {
         return {
           ...base,
-          isGlobal: true,
+          isShared: true,
           value: values[0],
         };
       }
 
       return {
         ...base,
-        isGlobal: false,
+        isShared: false,
         themeValues: valuesByMode,
       };
     });

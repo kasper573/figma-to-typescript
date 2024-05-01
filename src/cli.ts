@@ -14,19 +14,19 @@ function cliOptions() {
       demandOption: true,
       description: "The file path to read the input figma json data from",
     },
-    globalsImportName: {
+    sharedImportName: {
       type: "string",
       alias: "g",
-      default: "__global__",
+      default: "__shared__",
       description:
-        "The name of the import variable in the generated theme files that references the global tokens file.",
+        "The name of the import variable in the generated theme files that references the shared tokens file.",
     },
-    globalsOutputPath: {
+    sharedOutputPath: {
       type: "string",
-      alias: "ro",
-      default: path.resolve(process.cwd(), "generated/globals.ts"),
+      alias: "so",
+      default: path.resolve(process.cwd(), "generated/shared.ts"),
       description:
-        "The file path to write the generated global tokens file to.",
+        "The file path to write the generated shared tokens file to.",
     },
     themeOutputFolder: {
       type: "string",

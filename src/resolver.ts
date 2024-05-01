@@ -20,16 +20,16 @@ export function createAliasResolver(variables: Variable[]) {
       };
     }
 
-    const isTargetGlobal = resolved.isGlobal;
-    const isSourceGlobal =
-      source.origin.type === "style" ? true : source.origin.variable.isGlobal;
+    const isTargetShared = resolved.isShared;
+    const isSourceShared =
+      source.origin.type === "style" ? true : source.origin.variable.isShared;
 
-    if (isSourceGlobal && !isTargetGlobal) {
-      return err(`Global tokens may not depend on theme tokens`);
+    if (isSourceShared && !isTargetShared) {
+      return err(`Shared tokens may not depend on theme tokens`);
     }
 
     return ok({
-      isLocal: isSourceGlobal === isTargetGlobal,
+      isLocal: isSourceShared === isTargetShared,
       path: resolved.name,
     });
   };

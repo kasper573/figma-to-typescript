@@ -17,11 +17,14 @@ export type DesignTokenOrigin =
   | { type: "variable"; variable: Variable }
   | { type: "style" };
 
-export function tokenize(data: FigmaData): DesignToken[] {
+export function tokenize(
+  data: FigmaData,
+  nameTransformer?: (name: string[]) => string[],
+): DesignToken[] {
   const tokens: DesignToken[] = [];
 
   for (const variable of data.variables) {
-    if (variable.isGlobal) {
+    if (variable.isShared) {
       tokens.push({
         [tokenSymbol]: true,
         name: variable.name,
@@ -63,6 +66,13 @@ export function tokenize(data: FigmaData): DesignToken[] {
       }
     }
   }
+
+  if (nameTransformer) {
+    for (const token of tokens) {
+      token.name = nameTransformer(token.name);
+    }
+  }
+
   return tokens;
 }
 
