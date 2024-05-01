@@ -4,14 +4,6 @@ import type { Result } from "./result";
 import { err, ok } from "./result";
 
 export class IO {
-  constructor(
-    private settings: {
-      themeOutputFolder: string;
-      referenceOutputPath: string;
-      nameTransformer?: (name: string) => string;
-    },
-  ) {}
-
   async save(
     filename: string,
     typescriptCode: string,
@@ -23,31 +15,6 @@ export class IO {
     } catch (e) {
       return err(e);
     }
-  }
-
-  fullPathToFile(toTheme?: string) {
-    if (!toTheme) {
-      return this.referenceFile;
-    } else {
-      return path.resolve(
-        this.settings.themeOutputFolder,
-        `${this.settings.nameTransformer?.(toTheme) ?? toTheme}.ts`,
-      );
-    }
-  }
-
-  relativePathToReferenceFile(fromTheme?: string) {
-    if (fromTheme === undefined) {
-      return ".";
-    }
-    return path.relative(
-      path.dirname(this.fullPathToFile(fromTheme)),
-      this.referenceFile,
-    );
-  }
-
-  get referenceFile() {
-    return path.resolve(this.settings.referenceOutputPath);
   }
 
   log(...args: unknown[]) {

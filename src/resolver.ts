@@ -20,18 +20,16 @@ export function createAliasResolver(variables: Variable[]) {
       };
     }
 
-    const isTargetRef = resolved.isReference;
-    const isSourceRef =
-      source.origin.type === "style"
-        ? true
-        : source.origin.variable.isReference;
+    const isTargetGlobal = resolved.isGlobal;
+    const isSourceGlobal =
+      source.origin.type === "style" ? true : source.origin.variable.isGlobal;
 
-    if (isSourceRef && !isTargetRef) {
-      return err(`Reference tokens may not depend on theme tokens`);
+    if (isSourceGlobal && !isTargetGlobal) {
+      return err(`Global tokens may not depend on theme tokens`);
     }
 
     return ok({
-      isLocal: isSourceRef === isTargetRef,
+      isLocal: isSourceGlobal === isTargetGlobal,
       path: resolved.name,
     });
   };

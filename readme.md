@@ -23,20 +23,14 @@ The package is also distributed as an npm binary:
 
 ### Programmatic interface
 
+Exposes more options than the CLI.
+
+See the [CodegenOptions](src/generator.ts) type for more information.
+
 ```typescript
 import { generate } from "figma-to-typescript";
 
 const finishedWithoutErrors = await generate({
-  // Allows the same options as the CLI. See CLI help for more information.
-  // However, programmatic interface exposes more options:
-
-  /**
-   * Allows you to control naming conventions
-   **/
-  nameTransformers: {
-    identifier: (str) => str.toLowerCase(),
-    typeName: (str) => str.toUpperCase(),
-    fileName: (str) => str.toLowerCase(),
-  };
+  // ... pass in CodegenOptions here
 });
 ```

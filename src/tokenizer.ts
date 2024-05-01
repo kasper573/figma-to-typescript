@@ -21,7 +21,7 @@ export function tokenize(data: FigmaData): DesignToken[] {
   const tokens: DesignToken[] = [];
 
   for (const variable of data.variables) {
-    if (variable.isReference) {
+    if (variable.isGlobal) {
       tokens.push({
         [tokenSymbol]: true,
         name: variable.name,

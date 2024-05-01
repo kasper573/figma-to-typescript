@@ -10,17 +10,17 @@ const F = ts.factory;
 export function AST_designTokenFile(
   tokens: DesignTokenGraph,
   resolveAlias: AliasResolver,
-  relativePathToReferenceFile: string,
-  referenceImportName: string,
+  relativePathToGlobalsFile: string,
+  globalsImportName: string,
   cnc: CodegenNamingConvention,
 ): Result<ts.SourceFile, string> {
   const statements: ts.Statement[] = [];
 
-  if (relativePathToReferenceFile !== ".") {
+  if (relativePathToGlobalsFile !== ".") {
     statements.push(
       AST_importAllAs(
-        toTypescriptImportPath(relativePathToReferenceFile),
-        referenceImportName,
+        toTypescriptImportPath(relativePathToGlobalsFile),
+        globalsImportName,
         cnc,
       ),
     );
@@ -35,19 +35,14 @@ export function AST_designTokenFile(
         tokenNode,
         resolveAlias,
         cnc,
-        referenceImportName,
+        globalsImportName,
       );
       statements.push(AST_constExport(tokenIdentifier, value));
     } else {
       statements.push(
         AST_constExport(
           tokenIdentifier,
-          AST_designTokenGraph(
-            tokenNode,
-            resolveAlias,
-            cnc,
-            referenceImportName,
-          ),
+          AST_designTokenGraph(tokenNode, resolveAlias, cnc, globalsImportName),
         ),
       );
     }
@@ -67,12 +62,12 @@ function AST_designTokenNode(
   node: DesignTokenNode,
   resolveAlias: AliasResolver,
   cnc: CodegenNamingConvention,
-  referenceImportName: string,
+  globalsImportName: string,
 ): { elementType: "property" | "getAccessor"; value: ts.Expression } {
   if (!isDesignToken(node)) {
     return {
       elementType: "property",
-      value: AST_designTokenGraph(node, resolveAlias, cnc, referenceImportName),
+      value: AST_designTokenGraph(node, resolveAlias, cnc, globalsImportName),
     };
   }
 
@@ -122,7 +117,7 @@ function AST_designTokenNode(
       if (!result.value.isLocal) {
         return {
           elementType: "property",
-          value: cnc.accessorChain([referenceImportName, ...result.value.path]),
+          value: cnc.accessorChain([globalsImportName, ...result.value.path]),
         };
       }
 
@@ -138,7 +133,7 @@ function AST_designTokenGraph(
   tokens: DesignTokenGraph,
   resolveAlias: AliasResolver,
   cnc: CodegenNamingConvention,
-  referenceImportName: string,
+  globalsImportName: string,
 ): ts.Expression {
   return F.createObjectLiteralExpression(
     Object.entries(tokens).map(([tokenName, node]) => {
@@ -146,7 +141,7 @@ function AST_designTokenGraph(
         node,
         resolveAlias,
         cnc,
-        referenceImportName,
+        globalsImportName,
       );
       switch (elementType) {
         case "property":

@@ -43,11 +43,11 @@ export type Variable = {
   name: string[];
 } & (
   | {
-      isReference: true;
+      isGlobal: true;
       value: Value;
     }
   | {
-      isReference: false;
+      isGlobal: false;
       themeValues: Record<string, Value>;
     }
 );
@@ -70,14 +70,14 @@ const variableSchema = (separator: string) => {
       if (values.length === 1) {
         return {
           ...base,
-          isReference: true,
+          isGlobal: true,
           value: values[0],
         };
       }
 
       return {
         ...base,
-        isReference: false,
+        isGlobal: false,
         themeValues: valuesByMode,
       };
     });

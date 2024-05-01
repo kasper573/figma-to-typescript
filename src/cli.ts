@@ -14,11 +14,19 @@ function cliOptions() {
       demandOption: true,
       description: "The file path to read the input figma json data from",
     },
-    referenceOutputPath: {
+    globalsImportName: {
+      type: "string",
+      alias: "g",
+      default: "__global__",
+      description:
+        "The name of the import variable in the generated theme files that references the global tokens file.",
+    },
+    globalsOutputPath: {
       type: "string",
       alias: "ro",
-      default: path.resolve(process.cwd(), "generated/reference.ts"),
-      description: "The file path to write the generated reference file to.",
+      default: path.resolve(process.cwd(), "generated/globals.ts"),
+      description:
+        "The file path to write the generated global tokens file to.",
     },
     themeOutputFolder: {
       type: "string",
@@ -46,13 +54,6 @@ function cliOptions() {
       alias: "nz",
       default: false,
       description: "Exit with a non-zero code if an error occurs.",
-    },
-    referenceImportName: {
-      type: "string",
-      alias: "ref",
-      default: "__ref__",
-      description:
-        "The name of the reference file import in the generated theme files",
     },
   } as const;
 }

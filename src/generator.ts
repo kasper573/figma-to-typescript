@@ -19,24 +19,22 @@ export interface CodegenOptions extends CLIArgs {
   nameTransformers?: {
     identifier?: StringTransformer;
     typeName?: StringTransformer;
-    fileName?: StringTransformer;
   };
+  themeOutputPath?: (themeName: string) => string;
 }
 
 export async function generate({
   inputPath,
   themeOutputFolder,
-  referenceOutputPath,
-  referenceImportName,
+  themeOutputPath = (themeName) =>
+    path.join(themeOutputFolder, `${themeName}.ts`),
+  globalsOutputPath,
+  globalsImportName,
   nameTransformers,
   separator,
   codeHeader,
 }: CodegenOptions) {
-  const io = new IO({
-    themeOutputFolder,
-    referenceOutputPath,
-    nameTransformer: nameTransformers?.fileName,
-  });
+  const io = new IO();
   const inputData = JSON.parse(
     await fs.readFile(path.resolve(process.cwd(), inputPath), "utf-8"),
   );
@@ -60,14 +58,20 @@ export async function generate({
 
   const errorsPerFile = await Promise.all(
     Array.from(tokensByTheme.entries()).map(async ([theme, tokens = []]) => {
-      const filename = io.fullPathToFile(theme);
+      const isGlobal = theme === undefined;
+      const filename = isGlobal ? globalsOutputPath : themeOutputPath(theme);
+
+      const pathToGlobalsFile = isGlobal
+        ? "."
+        : path.relative(path.dirname(filename), globalsOutputPath);
+
       io.log("Generating", filename);
 
       const sourceFile = AST_designTokenFile(
         createTokenGraph(tokens),
         resolveAlias,
-        io.relativePathToReferenceFile(theme),
-        referenceImportName,
+        pathToGlobalsFile,
+        globalsImportName,
         cnc,
       );
 
