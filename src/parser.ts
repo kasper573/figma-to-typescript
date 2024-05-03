@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { ZodType, z } from "zod";
 
 export type VariableAlias = z.infer<typeof variableAliasSchema>;
 const variableAliasSchema = z.object({
@@ -34,6 +34,21 @@ export const valueSchema = z.discriminatedUnion("type", [
   rgbaSchema,
   rgbSchema,
 ]);
+
+export function isValue(input: unknown): input is Value {
+  return valueSchema.safeParse(input).success;
+}
+
+export type ValueNode = Value | ValueRecord | undefined;
+const valueNodeSchema: ZodType<ValueNode> = z.lazy(() =>
+  valueSchema.or(valueRecordSchema).or(
+    // Treat all invalid values as undefined
+    z.any().transform(() => undefined),
+  ),
+);
+
+export type ValueRecord = { [key: string]: ValueNode };
+const valueRecordSchema: ZodType<ValueRecord> = z.record(valueNodeSchema);
 
 const nameSchema = (nameParser: NameParser) => z.string().transform(nameParser);
 
@@ -82,46 +97,22 @@ const variableSchema = (nameParser: NameParser) => {
     });
 };
 
-export type TextStyle = z.infer<ReturnType<typeof textStyleSchema>>;
-const textStyleSchema = (options: NameParser) =>
-  z.object({
-    name: nameSchema(options),
-    lineHeight: z
-      .object({
-        unit: valueSchema,
-        value: valueSchema,
-      })
-      .or(valueSchema)
-      .optional(),
-    fontSize: valueSchema.optional(),
-    fontFamily: valueSchema.optional(),
-    fontStyle: valueSchema.optional(),
-  });
-
-export type ShadowEffect = z.infer<typeof shadowEffectSchema>;
-const shadowEffectSchema = z.object({
-  type: z.enum(["DROP_SHADOW", "INNER_SHADOW"]),
-  spread: valueSchema.optional(),
-  radius: valueSchema.optional(),
-  color: valueSchema.optional(),
-  offset: z.object({ x: valueSchema, y: valueSchema }).partial().optional(),
-});
-
-const ignoredEffectSchema = z.object({
-  type: z.enum(["BACKGROUND_BLUR", "LAYER_BLUR"]),
-});
-
-export type Effect = z.infer<typeof effectSchema>;
-const effectSchema = z.discriminatedUnion("type", [
-  shadowEffectSchema,
-  ignoredEffectSchema,
-]);
+export type TextStyle = { name: string[]; props: ValueRecord };
+const textStyleSchema = (nameParser: NameParser) => {
+  const ns = nameSchema(nameParser);
+  return z.any().transform(
+    ({ name, ...rest }): TextStyle => ({
+      name: ns.parse(name),
+      props: valueRecordSchema.parse(rest),
+    }),
+  );
+};
 
 export type EffectStyle = z.infer<ReturnType<typeof effectStyleSchema>>;
 const effectStyleSchema = (nameParser: NameParser) =>
   z.object({
     name: nameSchema(nameParser),
-    effects: z.array(effectSchema),
+    effects: z.array(valueRecordSchema),
   });
 
 export type FigmaData = z.infer<ReturnType<typeof figmaDataSchema>>;
@@ -130,6 +121,7 @@ export const figmaDataSchema = (nameParser: NameParser) =>
     variables: z.array(variableSchema(nameParser)),
     textStyles: z.array(textStyleSchema(nameParser)),
     effectStyles: z.array(effectStyleSchema(nameParser)),
+    // TODO grid and paint styles
   });
 
 export type NameParser = (name: string) => string[];

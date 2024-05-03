@@ -2,7 +2,8 @@ import {
   type FigmaData,
   type Value,
   type Variable,
-  valueSchema,
+  ValueNode,
+  isValue,
 } from "./parser";
 
 export interface DesignToken {
@@ -41,50 +42,34 @@ export function tokenize(data: FigmaData): DesignToken[] {
     }
   }
 
-  for (const textStyle of data.textStyles) {
-    const { name, ...rest } = textStyle;
-    tokens.push(...flattenIntoTokenList({ type: "style" }, name, rest));
+  for (const { name, props } of data.textStyles) {
+    tokens.push(...flattenIntoTokenList({ type: "style" }, name, props));
   }
 
-  for (const effectStyle of data.effectStyles) {
-    for (const effect of effectStyle.effects) {
-      switch (effect.type) {
-        case "INNER_SHADOW":
-        case "DROP_SHADOW": {
-          const { type, offset, ...rest } = effect;
-          tokens.push(
-            ...flattenIntoTokenList({ type: "style" }, effectStyle.name, {
-              ...offset,
-              ...rest,
-            }),
-          );
-          break;
-        }
-      }
+  for (const { name, effects } of data.effectStyles) {
+    for (const props of effects) {
+      tokens.push(...flattenIntoTokenList({ type: "style" }, name, props));
     }
   }
 
   return tokens;
 }
 
-type ValueGraph = Value | undefined | { [key: string]: ValueGraph | undefined };
-
 function flattenIntoTokenList(
   origin: DesignTokenOrigin,
   prefix: string[],
-  node: ValueGraph,
+  node: ValueNode,
 ): DesignToken[] {
   if (node === undefined) {
     return [];
   }
 
-  const result = valueSchema.safeParse(node);
-  if (result.success) {
+  if (isValue(node)) {
     return [
       {
         [tokenSymbol]: true,
         name: prefix,
-        value: result.data,
+        value: node,
         origin,
       },
     ];
