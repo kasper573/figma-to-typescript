@@ -100,8 +100,6 @@ export async function generate({
       const saveResult = await io.save(filename, codeHeader + code);
       if (!saveResult.ok) {
         errors.push(`Failed to save:\n${saveResult.error}`);
-      } else {
-        io.log("Saved", filename);
       }
 
       return [filename, errors] as const;
