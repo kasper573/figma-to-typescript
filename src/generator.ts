@@ -65,8 +65,9 @@ export async function generate({
     transformers?.type,
   );
 
+  const tokenEntries = Array.from(tokensByTheme.entries());
   const errorsPerFile = await Promise.all(
-    Array.from(tokensByTheme.entries()).map(async ([theme, tokens = []]) => {
+    tokenEntries.map(async ([theme, tokens = []]) => {
       const isShared = theme === undefined;
       const filename = isShared ? sharedOutputPath : themeOutputPath(theme);
 
@@ -99,11 +100,17 @@ export async function generate({
       const saveResult = await io.save(filename, codeHeader + code);
       if (!saveResult.ok) {
         errors.push(`Failed to save:\n${saveResult.error}`);
+      } else {
+        io.log("Saved", filename);
       }
 
       return [filename, errors] as const;
     }),
   );
+
+  if (tokenEntries.length === 0) {
+    io.log("No tokens found in the input data");
+  }
 
   if (errorsPerFile.length) {
     for (const [filename, errors] of errorsPerFile) {
