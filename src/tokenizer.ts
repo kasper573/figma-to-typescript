@@ -47,8 +47,14 @@ export function tokenize(data: FigmaData): DesignToken[] {
   }
 
   for (const { name, effects } of data.effectStyles) {
-    for (const props of effects) {
-      tokens.push(...flattenIntoTokenList({ type: "style" }, name, props));
+    for (const key in effects) {
+      tokens.push(
+        ...flattenIntoTokenList(
+          { type: "style" },
+          [...name, key],
+          effects[key],
+        ),
+      );
     }
   }
 
