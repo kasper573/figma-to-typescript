@@ -3,7 +3,7 @@ import * as path from "path";
 import { format } from "prettier";
 import * as ts from "typescript";
 import { figmaDataSchema } from "./parser";
-import { tokenize } from "./tokenizer";
+import { DesignToken, tokenize } from "./tokenizer";
 import {
   AST_designTokenFile,
   CodegenNamingConvention,
@@ -31,6 +31,10 @@ export interface CodegenOptions
      * Transform type names before generating the code
      */
     type?: StringTransformer;
+    /**
+     * Transform token values before generating the code
+     */
+    token?: (token: DesignToken, theme?: string) => DesignToken;
   };
 }
 
@@ -65,6 +69,7 @@ export async function generate({
     transformers?.type,
   );
 
+  const transformToken = transformers?.token ?? ((token) => token);
   const tokenEntries = Array.from(tokensByTheme.entries());
   const errorsPerFile = await Promise.all(
     tokenEntries.map(async ([theme, tokens = []]) => {
@@ -78,7 +83,7 @@ export async function generate({
       io.log("Generating", filename);
 
       const sourceFile = AST_designTokenFile(
-        createTokenGraph(tokens),
+        createTokenGraph(tokens.map((token) => transformToken(token, theme))),
         resolveAlias,
         pathToSharedFile,
         sharedImportName,
