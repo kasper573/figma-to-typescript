@@ -21,8 +21,7 @@ export function createAliasResolver(variables: Variable[]) {
     }
 
     const isTargetShared = resolved.isShared;
-    const isSourceShared =
-      source.origin.type === "style" ? true : source.origin.variable.isShared;
+    const isSourceShared = source.theme === undefined;
 
     if (isSourceShared && !isTargetShared) {
       return err(`Shared tokens may not depend on theme tokens`);
