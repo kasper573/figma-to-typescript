@@ -31,17 +31,23 @@ export function createAliasResolver(variables: Variable[]) {
 
     const isTargetShared = resolved.isShared;
 
-    // Styles are a higher order token: they get their own file and pull theme
-    // values in through a theme parameter, so they may reference both shared
-    // and theme tokens. A theme reference is therefore never an error here.
-    if (source.origin.type === "style") {
+    // Derived styles get their own file and pull theme values in through a
+    // theme parameter, so they may reference both shared and theme tokens. A
+    // theme reference is therefore never an error here.
+    if (source.origin.type === "style" && source.origin.derived) {
       return ok({
         kind: isTargetShared ? "shared" : "theme",
         path: resolved.name,
       });
     }
 
-    const isSourceShared = source.origin.variable.isShared;
+    // Everything else lives in the shared file (shared variables and
+    // non-derived styles) or a theme file (theme variables); it is shared when
+    // it carries no theme.
+    const isSourceShared =
+      source.origin.type === "variable"
+        ? source.origin.variable.isShared
+        : true;
     if (isSourceShared && !isTargetShared) {
       return err(`Shared tokens may not depend on theme tokens`);
     }

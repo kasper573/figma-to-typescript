@@ -6,7 +6,7 @@ import { figmaDataSchema } from "./parser";
 import { DesignToken, tokenize } from "./tokenizer";
 import {
   AST_designTokenFile,
-  AST_styleTokenFile,
+  AST_derivedTokenFile,
   CodegenNamingConvention,
   StringTransformer,
 } from "./ast";
@@ -44,7 +44,7 @@ export async function generate({
   inputPath,
   themeOutputPath,
   sharedOutputPath,
-  stylesOutputPath,
+  derivedOutputPath,
   sharedImportName,
   transformers,
   parseTokenName,
@@ -96,23 +96,24 @@ export async function generate({
     return [filename, errors];
   };
 
-  // Variables become shared (no theme) or theme (one per theme) tokens, each
-  // written to its own file. Styles are a higher order token written to their
-  // own file, so they are handled separately below.
-  const variableTokens = tokens.filter(
-    (token) => token.origin.type === "variable",
-  );
-  const styleTokens = tokens.filter((token) => token.origin.type === "style");
+  // Variables become shared (no theme) or theme (one per theme) tokens. A style
+  // that only references shared tokens behaves like a shared token and stays in
+  // the shared file; a "derived" style references a theme token and gets its
+  // own file (handled separately below).
+  const isDerived = (token: DesignToken) =>
+    token.origin.type === "style" && token.origin.derived;
+  const derivedTokens = tokens.filter(isDerived);
+  const regularTokens = tokens.filter((token) => !isDerived(token));
 
-  const variablesByTheme = groupBy((token) => token.theme, variableTokens);
-  const hasSharedFile = variablesByTheme.has(undefined);
-  const themeNames = Array.from(variablesByTheme.keys()).filter(
+  const regularByTheme = groupBy((token) => token.theme, regularTokens);
+  const hasSharedFile = regularByTheme.has(undefined);
+  const themeNames = Array.from(regularByTheme.keys()).filter(
     (theme): theme is string => theme !== undefined,
   );
 
   const fileTasks: Array<Promise<readonly [string, string[]]>> = [];
 
-  for (const [theme, themeTokens = []] of variablesByTheme.entries()) {
+  for (const [theme, themeTokens = []] of regularByTheme.entries()) {
     const isShared = theme === undefined;
     const filename = isShared ? sharedOutputPath : themeOutputPath(theme);
     const pathToSharedFile = isShared
@@ -137,31 +138,31 @@ export async function generate({
     );
   }
 
-  if (styleTokens.length > 0) {
-    io.log("Generating", stylesOutputPath);
+  if (derivedTokens.length > 0) {
+    io.log("Generating", derivedOutputPath);
 
-    // Styles borrow the `Theme` type from any one theme file (they are
+    // Derived styles borrow the `Theme` type from any one theme file (they are
     // structurally identical) so they can reference theme tokens through their
     // factory parameter.
     const canonicalTheme = themeNames[0];
 
     fileTasks.push(
       emit(
-        stylesOutputPath,
-        AST_styleTokenFile(
+        derivedOutputPath,
+        AST_derivedTokenFile(
           createTokenGraph(
-            styleTokens.map((token) => transformToken(token, undefined)),
+            derivedTokens.map((token) => transformToken(token, undefined)),
           ),
           resolveAlias,
           {
             sharedImportName,
             relativePathToSharedFile: hasSharedFile
-              ? path.relative(path.dirname(stylesOutputPath), sharedOutputPath)
+              ? path.relative(path.dirname(derivedOutputPath), sharedOutputPath)
               : undefined,
             relativePathToThemeFile:
               canonicalTheme !== undefined
                 ? path.relative(
-                    path.dirname(stylesOutputPath),
+                    path.dirname(derivedOutputPath),
                     themeOutputPath(canonicalTheme),
                   )
                 : undefined,

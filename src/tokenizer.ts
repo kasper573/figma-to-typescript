@@ -16,7 +16,9 @@ export interface DesignToken {
 
 export type DesignTokenOrigin =
   | { type: "variable"; variable: Variable }
-  | { type: "style" };
+  // `derived` is true when the style references a theme token, which forces it
+  // out of the shared file and into the derived file (see the tokenizer).
+  | { type: "style"; derived: boolean };
 
 export function tokenize(data: FigmaData): DesignToken[] {
   const tokens: DesignToken[] = [];
@@ -26,7 +28,6 @@ export function tokenize(data: FigmaData): DesignToken[] {
       variable,
     ]),
   );
-  const themes = collectThemes(data.variables);
 
   for (const variable of data.variables) {
     if (variable.isShared) {
@@ -49,59 +50,51 @@ export function tokenize(data: FigmaData): DesignToken[] {
     }
   }
 
-  // A text or effect style that references a theme token can't be a shared
-  // token, because its resolved value differs per theme.
-  // Such styles are promoted to theme tokens (emitted once per theme).
-  const pushStyleTokens = (styleTokens: DesignToken[]) => {
-    const referencesThemeToken = styleTokens.some(
-      (token) =>
-        token.value.type === "alias" &&
-        variablesById.get(token.value.id)?.isShared === false,
-    );
-
-    if (!referencesThemeToken) {
-      tokens.push(...styleTokens);
-      return;
-    }
-
-    for (const theme of themes) {
-      for (const token of styleTokens) {
-        tokens.push({ ...token, theme });
-      }
-    }
-  };
-
+  // A style that references a theme token is "derived": its resolved value
+  // depends on the theme, so it is emitted to the derived file (as a factory)
+  // rather than the shared file. Styles that only reference shared tokens or
+  // literals keep their original home in the shared file.
   for (const { name, props } of data.textStyles) {
-    pushStyleTokens(flattenIntoTokenList({ type: "style" }, name, props));
+    const derived = referencesThemeToken(props, variablesById);
+    tokens.push(
+      ...flattenIntoTokenList({ type: "style", derived }, name, props),
+    );
   }
 
   for (const { name, effects } of data.effectStyles) {
-    const styleTokens: DesignToken[] = [];
+    const derived = effects.some((effect) =>
+      referencesThemeToken(effect, variablesById),
+    );
     for (const key in effects) {
-      styleTokens.push(
+      tokens.push(
         ...flattenIntoTokenList(
-          { type: "style" },
+          { type: "style", derived },
           [...name, key],
           effects[key],
         ),
       );
     }
-    pushStyleTokens(styleTokens);
   }
 
   return tokens;
 }
 
-function collectThemes(variables: Variable[]): string[] {
-  const themes = new Set<string>();
-  for (const variable of variables) {
-    if (!variable.isShared) {
-      for (const theme of Object.keys(variable.themeValues)) {
-        themes.add(theme);
-      }
-    }
+/** Whether any value reachable from `node` aliases a theme (non-shared) variable */
+function referencesThemeToken(
+  node: ValueNode,
+  variablesById: Map<string, Variable>,
+): boolean {
+  if (node === undefined) {
+    return false;
   }
-  return [...themes];
+  if (isValue(node)) {
+    return (
+      node.type === "alias" && variablesById.get(node.id)?.isShared === false
+    );
+  }
+  return Object.values(node).some((child) =>
+    referencesThemeToken(child, variablesById),
+  );
 }
 
 function flattenIntoTokenList(

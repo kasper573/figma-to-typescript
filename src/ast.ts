@@ -63,7 +63,7 @@ export function AST_designTokenFile(
   };
 }
 
-export interface StyleFileContext {
+export interface DerivedFileContext {
   sharedImportName: string;
   /** Relative path to the shared tokens file, or undefined if there is none */
   relativePathToSharedFile?: string;
@@ -75,16 +75,16 @@ export interface StyleFileContext {
 }
 
 /**
- * Styles are a higher order token. They live in their own file and may
- * reference both shared tokens (via the shared import) and theme tokens. Since
- * a single file can't embed a per-theme value, each top level style is emitted
- * as a factory `(theme: Theme) => (...)` and theme references resolve through
- * that parameter.
+ * Derived styles are a higher order token: a style that references a theme
+ * token lives here and may reference both shared tokens (via the shared
+ * import) and theme tokens. Since a single file can't embed a per-theme value,
+ * each top level entry is emitted as a factory `(theme: Theme) => (...)` and
+ * theme references resolve through that parameter.
  */
-export function AST_styleTokenFile(
+export function AST_derivedTokenFile(
   tokens: DesignTokenGraph,
   resolveAlias: AliasResolver,
-  ctx: StyleFileContext,
+  ctx: DerivedFileContext,
   cnc: CodegenNamingConvention,
 ): Result<ts.SourceFile, string> {
   const statements: ts.Statement[] = [];
@@ -104,7 +104,7 @@ export function AST_styleTokenFile(
   for (const [tokenName, tokenNode] of Object.entries(tokens)) {
     const tokenIdentifier = cnc.identifier(tokenName);
     statements.push(
-      AST_styleReturnTypeAlias(cnc.typeName(tokenName), tokenIdentifier),
+      AST_derivedReturnTypeAlias(cnc.typeName(tokenName), tokenIdentifier),
     );
 
     const body = isDesignToken(tokenNode)
@@ -116,7 +116,7 @@ export function AST_styleTokenFile(
         ).value
       : AST_designTokenGraph(tokenNode, resolveAlias, cnc, ctx.sharedImportName);
 
-    statements.push(AST_constExport(tokenIdentifier, AST_styleFactory(cnc, body)));
+    statements.push(AST_constExport(tokenIdentifier, AST_derivedFactory(cnc, body)));
   }
 
   return {
@@ -301,7 +301,7 @@ function toRelativeImportSpecifier(path: string) {
 }
 
 /** `export const <name> = (theme: Theme) => (<body>);` */
-function AST_styleFactory(
+function AST_derivedFactory(
   cnc: CodegenNamingConvention,
   body: ts.Expression,
 ): ts.Expression {
@@ -354,7 +354,7 @@ function AST_themeTypeAlias(relativePathToThemeFile?: string): ts.Statement {
 }
 
 /** `export type <name> = ReturnType<typeof <name>>;` */
-function AST_styleReturnTypeAlias(
+function AST_derivedReturnTypeAlias(
   exportId: ts.Identifier,
   identifierId: ts.Identifier,
 ): ts.Statement {
