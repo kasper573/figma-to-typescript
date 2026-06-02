@@ -6,6 +6,7 @@ import { figmaDataSchema } from "./parser";
 import { DesignToken, tokenize } from "./tokenizer";
 import {
   AST_designTokenFile,
+  AST_styleTokenFile,
   CodegenNamingConvention,
   StringTransformer,
 } from "./ast";
@@ -13,6 +14,7 @@ import { createTokenGraph } from "./graph";
 import { IO } from "./io";
 import { createAliasResolver } from "./resolver";
 import type { CLIArgs } from "./cli";
+import type { Result } from "./result";
 import { ZodError } from "zod";
 
 export interface CodegenOptions
@@ -42,6 +44,7 @@ export async function generate({
   inputPath,
   themeOutputPath,
   sharedOutputPath,
+  stylesOutputPath,
   sharedImportName,
   transformers,
   parseTokenName,
@@ -62,72 +65,133 @@ export async function generate({
 
   const resolveAlias = createAliasResolver(parseResult.data.variables);
   const tokens = tokenize(parseResult.data);
-  const tokensByTheme = groupBy((token) => token.theme, tokens);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
   const cnc = new CodegenNamingConvention(
     transformers?.identifier,
     transformers?.type,
   );
-
   const transformToken = transformers?.token ?? ((token) => token);
-  const tokenEntries = Array.from(tokensByTheme.entries());
-  const errorsPerFile = await Promise.all(
-    tokenEntries.map(async ([theme, tokens = []]) => {
-      const isShared = theme === undefined;
-      const filename = isShared ? sharedOutputPath : themeOutputPath(theme);
 
-      const pathToSharedFile = isShared
-        ? "."
-        : path.relative(path.dirname(filename), sharedOutputPath);
+  const emit = async (
+    filename: string,
+    sourceFile: Result<ts.SourceFile, string>,
+  ): Promise<readonly [string, string[]]> => {
+    if (!sourceFile.ok) {
+      return [filename, [sourceFile.error]];
+    }
 
-      io.log("Generating", filename);
+    const errors: string[] = [];
+    let code = printer.printFile(sourceFile.value);
+    try {
+      code = await format(code, { parser: "typescript" });
+    } catch (e) {
+      errors.push(`Failed to format:\n${e}`);
+    }
 
-      const sourceFile = AST_designTokenFile(
-        createTokenGraph(tokens.map((token) => transformToken(token, theme))),
-        resolveAlias,
-        pathToSharedFile,
-        sharedImportName,
-        cnc,
-      );
+    const saveResult = await io.save(filename, codeHeader + code);
+    if (!saveResult.ok) {
+      errors.push(`Failed to save:\n${saveResult.error}`);
+    }
 
-      if (!sourceFile.ok) {
-        return [filename, [sourceFile.error]] as const;
-      }
+    return [filename, errors];
+  };
 
-      const errors: string[] = [];
-      let code = printer.printFile(sourceFile.value);
-      try {
-        code = await format(code, { parser: "typescript" });
-      } catch (e) {
-        errors.push(`Failed to format:\n${e}`);
-      }
+  // Variables become shared (no theme) or theme (one per theme) tokens, each
+  // written to its own file. Styles are a higher order token written to their
+  // own file, so they are handled separately below.
+  const variableTokens = tokens.filter(
+    (token) => token.origin.type === "variable",
+  );
+  const styleTokens = tokens.filter((token) => token.origin.type === "style");
 
-      const saveResult = await io.save(filename, codeHeader + code);
-      if (!saveResult.ok) {
-        errors.push(`Failed to save:\n${saveResult.error}`);
-      }
-
-      return [filename, errors] as const;
-    }),
+  const variablesByTheme = groupBy((token) => token.theme, variableTokens);
+  const hasSharedFile = variablesByTheme.has(undefined);
+  const themeNames = Array.from(variablesByTheme.keys()).filter(
+    (theme): theme is string => theme !== undefined,
   );
 
-  if (tokenEntries.length === 0) {
+  const fileTasks: Array<Promise<readonly [string, string[]]>> = [];
+
+  for (const [theme, themeTokens = []] of variablesByTheme.entries()) {
+    const isShared = theme === undefined;
+    const filename = isShared ? sharedOutputPath : themeOutputPath(theme);
+    const pathToSharedFile = isShared
+      ? "."
+      : path.relative(path.dirname(filename), sharedOutputPath);
+
+    io.log("Generating", filename);
+
+    fileTasks.push(
+      emit(
+        filename,
+        AST_designTokenFile(
+          createTokenGraph(
+            themeTokens.map((token) => transformToken(token, theme)),
+          ),
+          resolveAlias,
+          pathToSharedFile,
+          sharedImportName,
+          cnc,
+        ),
+      ),
+    );
+  }
+
+  if (styleTokens.length > 0) {
+    io.log("Generating", stylesOutputPath);
+
+    // Styles borrow the `Theme` type from any one theme file (they are
+    // structurally identical) so they can reference theme tokens through their
+    // factory parameter.
+    const canonicalTheme = themeNames[0];
+
+    fileTasks.push(
+      emit(
+        stylesOutputPath,
+        AST_styleTokenFile(
+          createTokenGraph(
+            styleTokens.map((token) => transformToken(token, undefined)),
+          ),
+          resolveAlias,
+          {
+            sharedImportName,
+            relativePathToSharedFile: hasSharedFile
+              ? path.relative(path.dirname(stylesOutputPath), sharedOutputPath)
+              : undefined,
+            relativePathToThemeFile:
+              canonicalTheme !== undefined
+                ? path.relative(
+                    path.dirname(stylesOutputPath),
+                    themeOutputPath(canonicalTheme),
+                  )
+                : undefined,
+          },
+          cnc,
+        ),
+      ),
+    );
+  }
+
+  const errorsPerFile = await Promise.all(fileTasks);
+
+  if (fileTasks.length === 0) {
     io.log("No tokens found in the input data");
   }
 
-  if (errorsPerFile.length) {
-    for (const [filename, errors] of errorsPerFile) {
-      if (errors.length > 0) {
-        io.log(
-          `Errors in ${filename}:\n${errors.map((e, n) => ` #${n + 1} ${e}`).join("\n")}`,
-        );
-      }
+  for (const [filename, errors] of errorsPerFile) {
+    if (errors.length > 0) {
+      io.log(
+        `Errors in ${filename}:\n${errors.map((e, n) => ` #${n + 1} ${e}`).join("\n")}`,
+      );
     }
-  } else {
+  }
+
+  const hadErrors = errorsPerFile.some(([, errors]) => errors.length > 0);
+  if (!hadErrors) {
     io.log("Code generation finished without errors");
   }
 
-  return errorsPerFile.length === 0;
+  return !hadErrors;
 }
 
 function describeZodError(error: ZodError): string {

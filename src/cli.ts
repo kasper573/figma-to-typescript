@@ -28,6 +28,12 @@ function cliOptions() {
       description:
         "The file path to write the generated shared tokens file to.",
     },
+    stylesOutputPath: {
+      type: "string",
+      alias: "sto",
+      default: path.resolve(process.cwd(), "generated/styles.ts"),
+      description: "The file path to write the generated styles file to.",
+    },
     themeOutputFolder: {
       type: "string",
       alias: "to",
